@@ -26,7 +26,19 @@ window.App = {
     EscrowFactory.setProvider(web3.currentProvider);
     Escrow.setProvider(web3.currentProvider);
 
+    EscrowFactory.web3.eth.defaultAccount = web3.eth.accounts[0]
+    Escrow.web3.eth.defaultAccount = web3.eth.accounts[0]
+
     const instance = await EscrowFactory.deployed()
+
+    function stringifyOk(ok) {
+      switch (ok.toString()) {
+        case '0': return 'undecided'
+        case '1': return 'accepted'
+        case '2': return 'rejected'
+        default: throw 'wat?: ' + ok.toString()
+      }
+    }
 
     instance.EscrowCreated(async (err, result) => {
       console.log('EscrowCreated', err, result)
@@ -44,6 +56,10 @@ window.App = {
         ${ result.args.newAddress }
         <br>
         Created at ${ new Date(createdAt.toNumber()).toJSON() }
+        <br>
+        BuyerOk: ${ stringifyOk(buyerOk) }
+        <br>
+        SellerOk: ${ stringifyOk(sellerOk) }
         <br>
         <button onclick="App.accept('${ result.args.newAddress }')">Accept</button>
         <button onclick="App.reject('${ result.args.newAddress }')">Reject</button>
@@ -79,7 +95,7 @@ window.App = {
 
     const instance = await EscrowFactory.deployed()
     // web3.eth.defaultAccount = web3.eth.accounts[0]
-    EscrowFactory.web3.eth.defaultAccount = web3.eth.accounts[0]
+    
 
     console.log('from: ', web3.eth.accounts[0])
     const result = await instance.createEscrow.sendTransaction(seller, {
@@ -92,9 +108,10 @@ window.App = {
     console.log('result: ', result)
   },
 
-  setStatus: function(message) {
-    var status = document.getElementById("status");
-    status.innerHTML = message;
+  accept: async function(escrowAddress) {
+    const escrow = Escrow.at(escrowAddress)
+    const result = await escrow.accept()
+    console.log('accept result: ', result)
   },
 
   refreshBalance: function() {
