@@ -6,10 +6,11 @@ import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
-import metacoin_artifacts from '../../build/contracts/MetaCoin.json'
+import escrow_artifacts from '../../build/contracts/Escrow.json'
+import escrow_factory_artifacts from '../../build/contracts/EscrowFactory.json'
 
-// MetaCoin is our usable abstraction, which we'll use through the code below.
-var MetaCoin = contract(metacoin_artifacts);
+var Escrow = contract(escrow_artifacts);
+var EscrowFactory = contract(escrow_factory_artifacts);
 
 // The following code is simple to show off interacting with your contracts.
 // As your needs grow you will likely need to change its form and structure.
@@ -18,29 +19,77 @@ var accounts;
 var account;
 
 window.App = {
-  start: function() {
+  start: async function() {
     var self = this;
 
     // Bootstrap the MetaCoin abstraction for Use.
-    MetaCoin.setProvider(web3.currentProvider);
+    EscrowFactory.setProvider(web3.currentProvider);
+    Escrow.setProvider(web3.currentProvider);
+
+    const instance = await EscrowFactory.deployed()
+
+    instance.EscrowCreated(async (err, result) => {
+      console.log('EscrowCreated', err, result)
+
+      const escrow = Escrow.at(result.args.newAddress)
+      const createdAt = await escrow.createdAt()
+      const buyerOk = await escrow.buyerOk()
+      const sellerOk = await escrow.sellerOk()
+      console.log({
+        address: result.args.newAddress,
+        createdAt, buyerOk, sellerOk,
+      })
+
+      $('#contracts').append(`<div>
+        ${ result.args.newAddress }
+        <br>
+        Created at ${ new Date(createdAt.toNumber()).toJSON() }
+        <br>
+        <button onclick="App.accept('${ result.args.newAddress }')">Accept</button>
+        <button onclick="App.reject('${ result.args.newAddress }')">Reject</button>
+      </div>`)
+    })
 
     // Get the initial account balance so it can be displayed.
-    web3.eth.getAccounts(function(err, accs) {
-      if (err != null) {
-        alert("There was an error fetching your accounts.");
-        return;
-      }
+    // web3.eth.getAccounts(function(err, accs) {
+    //   if (err != null) {
+    //     alert("There was an error fetching your accounts.");
+    //     return;
+    //   }
 
-      if (accs.length == 0) {
-        alert("Couldn't get any accounts! Make sure your Ethereum client is configured correctly.");
-        return;
-      }
+    //   if (accs.length == 0) {
+    //     alert("Couldn't get any accounts! Make sure your Ethereum client is configured correctly.");
+    //     return;
+    //   }
 
-      accounts = accs;
-      account = accounts[0];
+    //   accounts = accs;
+    //   account = accounts[0];
 
-      self.refreshBalance();
-    });
+    //   self.refreshBalance();
+    // });
+  },
+
+  async createEscrow() {
+    const amount = parseInt($('#amount').val());
+    const seller = $('#seller').val();
+    console.log({
+      amount,
+      seller,
+    })
+
+    const instance = await EscrowFactory.deployed()
+    // web3.eth.defaultAccount = web3.eth.accounts[0]
+    EscrowFactory.web3.eth.defaultAccount = web3.eth.accounts[0]
+
+    console.log('from: ', web3.eth.accounts[0])
+    const result = await instance.createEscrow.sendTransaction(seller, {
+      // from: web3.eth.accounts[0],
+      value: web3.toWei(amount, 'ether'),
+      // gas: 4712388,
+      // gasPrice: 100000000000,
+    })
+
+    console.log('result: ', result)
   },
 
   setStatus: function(message) {
